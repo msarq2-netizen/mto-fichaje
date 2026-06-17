@@ -46,6 +46,7 @@ const adminUtils = {
   parseDate(str) {
     // Soporta "DD/MM/YYYY HH:MM:SS" y ISO
     if (!str) return null;
+    str = String(str).trim().replace(/,/g, '');
     if (str.includes('/')) {
       const [datePart, timePart=''] = str.split(' ');
       const [d, m, y] = datePart.split('/');
