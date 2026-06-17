@@ -44,13 +44,21 @@ const adminToast = {
 /* ── Utilidades ───────────────────────────────────────────── */
 const adminUtils = {
   parseDate(str) {
-    // Soporta "DD/MM/YYYY HH:MM:SS" y ISO
+    // Soporta "DD/MM/YYYY HH:MM:SS", "DD/MM/YYYY, HH:MM:SS" y ISO
     if (!str) return null;
     str = String(str).trim().replace(/,/g, '');
     if (str.includes('/')) {
       const [datePart, timePart=''] = str.split(' ');
       const [d, m, y] = datePart.split('/');
-      return new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T${timePart||'00:00:00'}`);
+      const dt = new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T${timePart||'00:00:00'}`);
+      // Si la fecha queda >3 meses en el futuro, probamos invertir día/mes
+      // (Samsung Browser guarda en MM/DD en vez de DD/MM con locale es-AR)
+      const cutoff = new Date(Date.now() + 90 * 24 * 3600 * 1000);
+      if (dt > cutoff && parseInt(d) <= 12) {
+        const swapped = new Date(`${y}-${d.padStart(2,'0')}-${m.padStart(2,'0')}T${timePart||'00:00:00'}`);
+        if (!isNaN(swapped.getTime()) && swapped <= cutoff) return swapped;
+      }
+      return dt;
     }
     return new Date(str);
   },
