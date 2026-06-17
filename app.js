@@ -157,13 +157,15 @@ const utils = {
     return `${(meters / 1000).toFixed(1)} km`;
   },
 
-  /** Formatea fecha/hora */
+  /** Formatea fecha/hora — DD/MM/YYYY HH:MM:SS (fijo, sin depender de locale del navegador) */
   formatDateTime(date = new Date()) {
-    return date.toLocaleString('es-AR', {
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-      hour12: false
-    });
+    const d  = String(date.getDate()).padStart(2, '0');
+    const mo = String(date.getMonth() + 1).padStart(2, '0');
+    const y  = date.getFullYear();
+    const h  = String(date.getHours()).padStart(2, '0');
+    const mi = String(date.getMinutes()).padStart(2, '0');
+    const s  = String(date.getSeconds()).padStart(2, '0');
+    return `${d}/${mo}/${y} ${h}:${mi}:${s}`;
   },
 
   /** Formatea solo hora */
