@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080c18">
+  <title>MTO HVAC — Panel Administrativo</title>
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+
+  <style>
+    /* Admin-specific overrides */
+    body { background: var(--bg-primary); }
+    .admin-wrapper { max-width: 1200px; margin: 0 auto; padding: var(--space-6) var(--space-6); position: relative; z-index: 1; }
+    @media(max-width:600px){ .admin-wrapper { padding: var(--space-3); } }
+
+    .page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: var(--space-8); flex-wrap: wrap; gap: var(--space-4);
+    }
+    .page-title { font-size: var(--fs-2xl); font-weight: 800; letter-spacing: -0.04em; }
+    .page-subtitle { font-size: var(--fs-sm); color: var(--text-muted); margin-top: 2px; }
+
+    /* Tabs */
+    .tab-bar {
+      display: flex; gap: 2px; background: var(--bg-glass);
+      border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+      padding: 4px; margin-bottom: var(--space-6); width: fit-content;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      padding: var(--space-2) var(--space-4); border-radius: var(--radius-md);
+      font-size: var(--fs-sm); font-weight: 600; color: var(--text-muted);
+      background: none; border: none; cursor: pointer; font-family: var(--font-sans);
+      transition: all var(--transition-fast); white-space: nowrap;
+    }
+    .tab-btn.active { background: var(--bg-card); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: screenIn 0.3s ease; }
+
+    /* Employee card */
+    .employee-card {
+      background: var(--bg-card); border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl); padding: var(--space-5);
+      backdrop-filter: blur(20px); transition: all var(--transition-normal);
+      cursor: pointer;
+    }
+    .employee-card:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .employee-avatar {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: var(--accent-gradient); display: grid; place-items: center;
+      font-size: var(--fs-lg); font-weight: 700; flex-shrink: 0;
+    }
+    .employees-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6); }
+
+    /* Ranking table */
+    .rank-num { font-size: var(--fs-lg); font-weight: 800; width: 32px; }
+    .rank-1 { color: #fbbf24; }
+    .rank-2 { color: #94a3b8; }
+    .rank-3 { color: #cd7f32; }
+
+    /* Selfie modal */
+    #selfieModal { display:none; }
+    #selfieModal.open { display:flex; }
+
+    /* Login */
+    #adminLogin { min-height: 100dvh; display: flex; align-items: center; justify-content: center; }
+    .login-card { max-width: 380px; width: 100%; padding: var(--space-8); }
+
+    /* Dot indicator en tabla */
+    .dot-in  { width:8px;height:8px;border-radius:50%;background:var(--accent-success);display:inline-block; }
+    .dot-out { width:8px;height:8px;border-radius:50%;background:var(--accent-danger);display:inline-block; }
+    .dot-break{ width:8px;height:8px;border-radius:50%;background:var(--accent-warning);display:inline-block; }
+
+    .export-row { display:flex; gap:var(--space-2); flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+
+<!-- ══════════════ LOGIN ══════════════ -->
+<div id="adminLogin">
+  <div class="card login-card" style="backdrop-filter:blur(30px);">
+    <div style="text-align:center; margin-bottom:var(--space-6);">
+      <div style="font-size:2.5rem; margin-bottom:var(--space-3);">🔐</div>
+      <h1 style="font-size:var(--fs-xl); font-weight:800; letter-spacing:-0.03em;">Panel Admin</h1>
+      <p style="font-size:var(--fs-sm); color:var(--text-muted); margin-top:var(--space-1);">MTO Servicios HVAC</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label">PIN de acceso</label>
+      <input type="password" class="form-input" id="adminPinInput" placeholder="••••••" maxlength="8"
+        onkeydown="if(event.key==='Enter') adminApp.login()">
+    </div>
+    <button class="btn btn-primary btn-full btn-lg" onclick="adminApp.login()">
+      Ingresar
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+    <p style="font-size:var(--fs-xs); color:var(--text-muted); text-align:center; margin-top:var(--space-4);">
+      PIN por defecto: <code style="font-family:var(--font-mono); background:var(--bg-glass); padding:1px 6px; border-radius:4px;">1234</code><br>
+      Cambiarlo en <code style="font-family:var(--font-mono)">Codigo.gs</code> → <code style="font-family:var(--font-mono)">ADMIN_PIN</code>
+    </p>
+  </div>
+</div>
+
+<!-- ══════════════ DASHBOARD ══════════════ -->
+<div id="adminDashboard" style="display:none;">
+<div class="admin-wrapper">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <div style="display:flex; align-items:center; gap:var(--space-3); margin-bottom:4px;">
+        <div class="logo-icon" style="width:36px;height:36px;font-size:1rem;">❄️</div>
+        <h1 class="page-title">Control de Asistencia</h1>
+      </div>
+      <p class="page-subtitle" id="dashSubtitle">MTO Servicios HVAC · Cargando datos...</p>
+    </div>
+    <div style="display:flex; gap:var(--space-2); flex-wrap:wrap; align-items:center;">
+      <button class="btn btn-ghost btn-sm" onclick="adminApp.loadData()" id="btnRefresh">
+        🔄 Actualizar
+      </button>
+      <div class="export-row">
+        <button class="btn btn-ghost btn-sm" onclick="adminApp.exportCSV()">⬇️ CSV</button>
+        <button class="btn btn-ghost btn-sm" onclick="adminApp.exportPDF()">📄 PDF</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="adminApp.logout()">Salir</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-card">
+      <div class="stat-label">Fichadas hoy</div>
+      <div class="stat-value" id="statToday" style="background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">—</div>
+      <div class="stat-change" id="statTodayChange">Cargando...</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Este mes</div>
+      <div class="stat-value" id="statMonth">—</div>
+      <div class="stat-change" id="statMonthChange">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Llegadas tarde</div>
+      <div class="stat-value" id="statLate" style="color:var(--accent-warning);">—</div>
+      <div class="stat-change" id="statLateChange">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Empleados activos</div>
+      <div class="stat-value" id="statEmployees">—</div>
+      <div class="stat-change" id="statEmployeesChange">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Home Office</div>
+      <div class="stat-value" id="statHO" style="color:var(--accent-info);">—</div>
+      <div class="stat-change">Fichadas remotas</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">En Obra</div>
+      <div class="stat-value" id="statObra" style="color:var(--accent-secondary);">—</div>
+      <div class="stat-change">Fichadas técnicos</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="adminApp.switchTab('records')"   data-tab="records">📋 Registros</button>
+    <button class="tab-btn"        onclick="adminApp.switchTab('employees')" data-tab="employees">👥 Empleados</button>
+    <button class="tab-btn"        onclick="adminApp.switchTab('charts')"    data-tab="charts">📈 Gráficos</button>
+    <button class="tab-btn"        onclick="adminApp.switchTab('ranking')"   data-tab="ranking">🏆 Ranking</button>
+  </div>
+
+  <!-- TAB: REGISTROS ───────────────────────────── -->
+  <div class="tab-panel active" id="tabRecords">
+    <!-- Filtros -->
+    <div class="filters-row">
+      <select class="filter-select" id="filterEmployee" onchange="adminApp.applyFilters()">
+        <option value="">Todos los empleados</option>
+      </select>
+      <select class="filter-select" id="filterType" onchange="adminApp.applyFilters()">
+        <option value="">Todos los tipos</option>
+        <option value="ENTRADA">Entrada</option>
+        <option value="SALIDA">Salida</option>
+        <option value="INICIO_ALMUERZO">Inicio Almuerzo</option>
+        <option value="FIN_ALMUERZO">Fin Almuerzo</option>
+      </select>
+      <input type="date" class="filter-select" id="filterDateFrom" onchange="adminApp.applyFilters()" style="min-width:150px;" title="Desde">
+      <input type="date" class="filter-select" id="filterDateTo"   onchange="adminApp.applyFilters()" style="min-width:150px;" title="Hasta">
+      <select class="filter-select" id="filterMode" onchange="adminApp.applyFilters()">
+        <option value="">Todos los modos</option>
+        <option value="oficina">Oficina</option>
+        <option value="homeoffice">Home Office</option>
+        <option value="obra">En Obra</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="adminApp.clearFilters()">✕ Limpiar</button>
+    </div>
+
+    <div style="font-size:var(--fs-sm); color:var(--text-muted); margin-bottom:var(--space-3);" id="recordsCount">
+      Cargando registros...
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Fecha y Hora</th>
+            <th>Empleado</th>
+            <th>Tipo</th>
+            <th>Modo</th>
+            <th>Distancia</th>
+            <th>GPS</th>
+            <th>Tarde</th>
+            <th>Foto</th>
+            <th>Observación</th>
+          </tr>
+        </thead>
+        <tbody id="recordsTable">
+          <tr><td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--text-muted);">
+            <div class="spinner" style="margin:0 auto var(--space-3);"></div>
+            Cargando datos...
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: EMPLEADOS ───────────────────────────── -->
+  <div class="tab-panel" id="tabEmployees">
+    <!-- Filtro mes/año -->
+    <div class="filters-row" style="margin-bottom:var(--space-4);">
+      <select class="filter-select" id="empFilterMonth" onchange="adminApp.renderEmployeesTab()">
+        <option value="">Todos los meses</option>
+      </select>
+      <select class="filter-select" id="empFilterYear" onchange="adminApp.renderEmployeesTab()">
+        <option value="">Todos los años</option>
+      </select>
+    </div>
+
+    <div class="employees-grid" id="employeesGrid">
+      <div style="color:var(--text-muted);grid-column:1/-1;text-align:center;padding:var(--space-8);">
+        <div class="spinner" style="margin:0 auto var(--space-3);"></div>
+        Cargando empleados...
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: GRÁFICOS ────────────────────────────── -->
+  <div class="tab-panel" id="tabCharts">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Fichadas por día (últimos 14 días)</div>
+        <div class="chart-canvas-wrap"><canvas id="chartDaily"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Distribución por tipo</div>
+        <div class="chart-canvas-wrap"><canvas id="chartTypes"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Fichadas por empleado (mes actual)</div>
+        <div class="chart-canvas-wrap"><canvas id="chartEmployee"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Llegadas tarde vs puntuales (mes)</div>
+        <div class="chart-canvas-wrap"><canvas id="chartPunctuality"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: RANKING ─────────────────────────────── -->
+  <div class="tab-panel" id="tabRanking">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4);" class="chart-grid">
+      <div class="card">
+        <div class="card-title">🏆 Ranking Puntualidad (mes actual)</div>
+        <div id="rankingPunctual"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚠️ Más llegadas tarde</div>
+        <div id="rankingLate"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">⏱️ Más horas registradas</div>
+        <div id="rankingHours"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📅 Ausencias detectadas</div>
+        <div id="rankingAbsent"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /admin-wrapper -->
+</div><!-- /adminDashboard -->
+
+<!-- ══════════ SELFIE MODAL ══════════ -->
+<div id="selfieModal" onclick="this.classList.remove('open'); this.style.display='none';"
+  style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);backdrop-filter:blur(12px);align-items:center;justify-content:center;">
+  <img id="selfieModalImg" src="" alt="Selfie"
+    style="max-width:88vw;max-height:88vh;border-radius:var(--radius-xl);object-fit:contain;box-shadow:var(--shadow-lg);">
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="admin.js"></script>
+</body>
+</html>
