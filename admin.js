@@ -108,9 +108,15 @@ const adminUtils = {
     return punchMin > limitMin;
   },
   scheduleNote(record) {
-    if (record.punchType !== 'SALIDA' || !record.datetime) return '';
+    if (!record.datetime) return '';
     const sched = adminUtils.getSchedule(record.employee, record.datetime);
-    return sched?.note || '';
+    if (!sched) return '';
+    if (record.punchType === 'SALIDA' && sched.note) return '📋 ' + sched.note;
+    const base = ADMIN_CONFIG.EMPLOYEE_SCHEDULES?.[record.employee];
+    if (record.punchType === 'ENTRADA' && base && (base.startHour !== 8 || base.startMinute !== 0)) {
+      return '📋 Jornada acordada ' + base.startHour + ':' + String(base.startMinute).padStart(2,'0') + '–' + base.endHour + ':' + String(base.endMinute).padStart(2,'0');
+    }
+    return '';
   },
   groupBy(arr, key) {
     return arr.reduce((acc, item) => {
@@ -666,6 +672,7 @@ const adminApp = {
             <div>
               <div style="font-weight:700;font-size:var(--fs-base);">${emp}</div>
               <div style="font-size:var(--fs-xs);color:var(--text-muted);">${s.punchCount} fichadas · ${s.workedDays} días</div>
+              ${(()=>{ const sc = ADMIN_CONFIG.EMPLOYEE_SCHEDULES?.[emp]; if (!sc) return ''; const days = sc.dayOverrides ? ' · Mié/Vie 16:00' : ''; return `<div style="font-size:var(--fs-xs);color:var(--accent-primary);margin-top:2px;">⏰ Jornada acordada ${sc.startHour}:${String(sc.startMinute).padStart(2,'0')}–${sc.endHour}:${String(sc.endMinute).padStart(2,'0')}${days}</div>`; })()}
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);">
