@@ -100,7 +100,7 @@ const adminUtils = {
     return override ? { ...sched, ...override } : sched;
   },
   isLateBySchedule(record) {
-    if (record.punchType !== 'ENTRADA' || !record.datetime) return record.isLate;
+    if (record.punchType !== 'ENTRADA' || !record.datetime) return false;
     const sched = adminUtils.getSchedule(record.employee, record.datetime);
     if (!sched) return record.isLate;
     const punchMin = record.datetime.getHours() * 60 + record.datetime.getMinutes();
