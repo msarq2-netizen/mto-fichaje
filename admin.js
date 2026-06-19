@@ -14,6 +14,21 @@ const ADMIN_CONFIG = {
   WORK_HOURS_PER_DAY: 8,     // horas laborales estándar
   MONTHS_ES: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
   DAYS_ES: ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],
+
+  EMPLOYEE_SCHEDULES: {
+    'AYELEN VECCHIARELLI': {
+      startHour: 8, startMinute: 30,
+      endHour: 17, endMinute: 30,
+    },
+    'GENOVEVA JURADO': {
+      startHour: 8, startMinute: 0,
+      endHour: 17, endMinute: 0,
+      dayOverrides: {
+        3: { endHour: 16, endMinute: 0, note: 'Salida acordada Mié 16:00' },
+        5: { endHour: 16, endMinute: 0, note: 'Salida acordada Vie 16:00' },
+      },
+    },
+  },
 };
 
 /* ── Estado global ────────────────────────────────────────── */
@@ -76,6 +91,26 @@ const adminUtils = {
   diffHours(dateA, dateB) {
     if (!dateA || !dateB) return 0;
     return Math.abs(dateB - dateA) / 3600000;
+  },
+  getSchedule(employee, date) {
+    const sched = ADMIN_CONFIG.EMPLOYEE_SCHEDULES?.[employee];
+    if (!sched) return null;
+    const dow = date instanceof Date ? date.getDay() : -1;
+    const override = sched.dayOverrides?.[dow];
+    return override ? { ...sched, ...override } : sched;
+  },
+  isLateBySchedule(record) {
+    if (record.punchType !== 'ENTRADA' || !record.datetime) return record.isLate;
+    const sched = adminUtils.getSchedule(record.employee, record.datetime);
+    if (!sched) return record.isLate;
+    const punchMin = record.datetime.getHours() * 60 + record.datetime.getMinutes();
+    const limitMin = sched.startHour * 60 + sched.startMinute + 15;
+    return punchMin > limitMin;
+  },
+  scheduleNote(record) {
+    if (record.punchType !== 'SALIDA' || !record.datetime) return '';
+    const sched = adminUtils.getSchedule(record.employee, record.datetime);
+    return sched?.note || '';
   },
   groupBy(arr, key) {
     return arr.reduce((acc, item) => {
@@ -155,7 +190,7 @@ const dataProcessor = {
       }
     });
 
-    const lateCount   = empRecs.filter(r => r.isLate && r.punchType==='ENTRADA').length;
+    const lateCount   = empRecs.filter(r => adminUtils.isLateBySchedule(r)).length;
     const punchCount  = empRecs.length;
     const hoCount     = empRecs.filter(r => r.mode==='homeoffice').length;
     const obraCount   = empRecs.filter(r => r.mode==='obra').length;
@@ -595,9 +630,9 @@ const adminApp = {
         <td><span class="badge badge-gray">${modeLabels[r.mode]||'?'} ${r.mode}</span></td>
         <td>${r.distance ? Math.round(r.distance)+'m' : '—'}</td>
         <td><span class="badge ${r.gpsStatus==='DENTRO_ZONA'?'badge-green':'badge-yellow'}">${r.gpsStatus==='DENTRO_ZONA'?'✓ OK':'🏠 HO'}</span></td>
-        <td>${r.isLate ? '<span class="badge badge-yellow">⚠️ Tarde</span>' : '<span class="badge badge-green">✓</span>'}</td>
+        <td>${adminUtils.isLateBySchedule(r) ? '<span class="badge badge-yellow">⚠️ Tarde</span>' : '<span class="badge badge-green">✓</span>'}</td>
         <td>${r.selfieURL ? `<img src="${r.selfieURL}" class="selfie-thumb" onclick="adminApp.openSelfie('${r.selfieURL}')" title="Ver selfie" onerror="this.style.display='none'">` : '<span style="color:var(--text-muted);font-size:var(--fs-xs);">—</span>'}</td>
-        <td style="max-width:160px;"><span class="truncate" title="${r.observation||''}">${r.observation||'—'}</span></td>
+        <td style="max-width:160px;"><span class="truncate" title="${r.observation||''}">${[adminUtils.scheduleNote(r), r.observation].filter(Boolean).join(' · ') || '—'}</span></td>
       </tr>`).join('');
   },
 
