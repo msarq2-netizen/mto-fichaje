@@ -167,7 +167,17 @@ const dataProcessor = {
     const hoRecs   = records.filter(r => r.mode === 'homeoffice');
     const obraRecs = records.filter(r => r.mode === 'obra');
 
-    return { today, thisMonth, lateRecs, employees, hoRecs, obraRecs };
+    // Empleados con ENTRADA hoy pero sin SALIDA hoy
+    const todayExitEmps = new Set(today.filter(r => r.punchType === 'SALIDA').map(r => r.employee));
+    const missedExitToday = [...new Set(today.filter(r => r.punchType === 'ENTRADA').map(r => r.employee))]
+      .filter(emp => !todayExitEmps.has(emp))
+      .map(emp => {
+        const entry = today.filter(r => r.punchType === 'ENTRADA' && r.employee === emp)
+                          .sort((a,b) => a.datetime - b.datetime)[0];
+        return { employee: emp, mode: entry?.mode || '?', entryTime: entry?.datetime };
+      });
+
+    return { today, thisMonth, lateRecs, employees, hoRecs, obraRecs, missedExitToday };
   },
 
   computeEmployeeStats(employeeName, records) {
@@ -202,7 +212,8 @@ const dataProcessor = {
     const obraCount   = empRecs.filter(r => r.mode==='obra').length;
     const extraHours  = Math.max(0, totalHours - (workedDays * ADMIN_CONFIG.WORK_HOURS_PER_DAY));
 
-    return { employeeName, punchCount, workedDays, totalHours: totalHours.toFixed(1), lateCount, hoCount, obraCount, extraHours: extraHours.toFixed(1) };
+    const missedExits = Object.keys(entriesByDay).filter(dayKey => !exitsByDay[dayKey]).length;
+    return { employeeName, punchCount, workedDays, totalHours: totalHours.toFixed(1), lateCount, hoCount, obraCount, extraHours: extraHours.toFixed(1), missedExits };
   },
 };
 
@@ -560,6 +571,33 @@ const adminApp = {
     document.getElementById('statEmployeesChange').textContent = `Con registros`;
     document.getElementById('statHO').textContent        = stats.hoRecs.length;
     document.getElementById('statObra').textContent      = stats.obraRecs.length;
+
+    const panel = document.getElementById('missedExitPanel');
+    if (panel) {
+      if (!stats.missedExitToday || stats.missedExitToday.length === 0) {
+        panel.innerHTML = '';
+      } else {
+        const modeLabel = { oficina:'🏢 Oficina', homeoffice:'🏠 Home Office', obra:'🔧 Obra' };
+        const rows = stats.missedExitToday.map(e => {
+          const hora = e.entryTime ? e.entryTime.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}) : '—';
+          return `<div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--accent-gradient);display:grid;place-items:center;font-size:11px;font-weight:700;flex-shrink:0;">${adminUtils.getInitials(e.employee)}</div>
+            <div style="flex:1;">
+              <div style="font-weight:600;font-size:var(--fs-sm);">${e.employee}</div>
+              <div style="font-size:var(--fs-xs);color:var(--text-muted);">${modeLabel[e.mode]||e.mode} · Entrada: ${hora}</div>
+            </div>
+            <span style="font-size:var(--fs-xs);color:#f59e0b;font-weight:600;">Sin salida</span>
+          </div>`;
+        }).join('');
+        panel.innerHTML = `<div style="margin:var(--space-4) 0;padding:var(--space-4);background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.3);border-radius:var(--radius-lg);">
+          <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-3);">
+            <span style="font-size:1.1rem;">⚠️</span>
+            <span style="font-weight:700;color:#f59e0b;">Sin salida registrada hoy (${stats.missedExitToday.length})</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--space-2);">${rows}</div>
+        </div>`;
+      }
+    }
   },
 
   _populateEmployeeFilter() {
@@ -687,6 +725,7 @@ const adminApp = {
           </div>
           <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3);flex-wrap:wrap;">
             <span class="badge ${lateClass}">⚠️ ${s.lateCount} tarde${s.lateCount!==1?'s':''}</span>
+            ${s.missedExits>0 ? `<span class="badge badge-red" title="Días con entrada pero sin salida registrada">🚪 ${s.missedExits} sin salida</span>` : ''}
             ${s.hoCount>0  ? `<span class="badge badge-blue">🏠 ${s.hoCount} HO</span>` : ''}
             ${s.obraCount>0? `<span class="badge badge-purple">🔧 ${s.obraCount} obra</span>` : ''}
           </div>
