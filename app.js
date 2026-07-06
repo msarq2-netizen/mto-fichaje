@@ -50,7 +50,6 @@ const CONFIG = {
       members: [
         'NICOLAS TRAUTMANN',
         'GENOVEVA JURADO',
-        'MATIAS MOSOVICH',
         'AYELEN VECCHIARELLI',
         'LUCAS ALVAREZ',
         'MAXIMILIANO SUAREZ',
