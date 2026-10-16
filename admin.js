@@ -493,7 +493,7 @@ const adminApp = {
         .filter(r => r && r[0])
         .map(r => dataProcessor.parseRow(r))
         .filter(r => r.datetime && !isNaN(r.datetime.getTime()))
-        .sort((a,b) => b.datetime - a.datetime);
+        .sort((a,b) => a.datetime - b.datetime);
 
       adminState.filteredRecords = [...adminState.records];
 
@@ -547,7 +547,7 @@ const adminApp = {
       });
     }
 
-    adminState.records = demo.sort((a,b) => b.datetime - a.datetime);
+    adminState.records = demo.sort((a,b) => a.datetime - b.datetime);
     adminState.filteredRecords = [...adminState.records];
     const stats = dataProcessor.computeStats(adminState.records);
     this._updateStats(stats);
